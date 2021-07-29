@@ -1,15 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import personService from "./services/persons";
+
+const Notification = ({ message }) => {
+  if (message === null) {
+    return null;
+  }
+  return <div className="message">{message}</div>;
+};
 
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: "Arto Hellas", number: "040-123456" },
-    { name: "Ada Lovelace", number: "39-44-5323523" },
-    { name: "Dan Abramov", number: "12-43-234345" },
-    { name: "Mary Poppendieck", number: "39-23-6423122" },
-  ]);
+  const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [filter, setFilter] = useState("");
+  const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    personService.getAll().then((initialPersons) => {
+      setPersons(initialPersons);
+    });
+  }, []);
 
   const addNumber = (event) => {
     event.preventDefault();
@@ -19,11 +29,36 @@ const App = () => {
     };
 
     if (persons.find((person) => person.name === newName)) {
-      alert(`${newName} is already added to phonebook`);
+      if (
+        window.confirm(
+          `${personObject.name} is already added to phonebook, replace the old number with a new one?`
+        )
+      ) {
+        const id = persons.find((person) => person.name === newName).id;
+        personService.update(id, personObject).then((returnedPerson) => {
+          setPersons(
+            persons.map((person) =>
+              person.id !== id ? person : returnedPerson
+            )
+          );
+        });
+        setNewName("");
+        setNewNumber("");
+        setMessage(`Changed ${personObject.name} number`);
+        setTimeout(() => {
+          setMessage(null);
+        }, 5000);
+      }
     } else {
-      setPersons(persons.concat(personObject));
-      setNewName("");
-      setNewNumber("");
+      personService.create(personObject).then((returnedPerson) => {
+        setPersons(persons.concat(returnedPerson));
+        setNewName("");
+        setNewNumber("");
+        setMessage(`Added ${personObject.name}`);
+        setTimeout(() => {
+          setMessage(null);
+        }, 5000);
+      });
     }
   };
 
@@ -46,9 +81,24 @@ const App = () => {
           person.name.toLowerCase().includes(filter.toLowerCase())
         );
 
+  const removeNumber = (person) => {
+    if (window.confirm(`Delete ${person.name} ?`)) {
+      personService.remove(person.id).then(() => {
+        personService.getAll().then((response) => {
+          setPersons(response);
+        });
+      });
+      setMessage(`Deleted ${person.name}`);
+      setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+    }
+  };
+
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification message={message} />
       <Filter filter={filter} handler={handleFilterChange} />
       <h2>add a new</h2>
       <PersonForm
@@ -59,7 +109,7 @@ const App = () => {
         numberHandler={handleNumberChange}
       />
       <h2>Numbers</h2>
-      <Persons personArray={personsToShow} />
+      <Persons personArray={personsToShow} remove={removeNumber} />
     </div>
   );
 };
@@ -97,7 +147,8 @@ const Persons = (props) => {
       <ul style={{ listStyleType: "none", margin: 0, padding: 0 }}>
         {props.personArray.map((person) => (
           <li key={person.name}>
-            {person.name} {person.number}
+            {person.name} {person.number}{" "}
+            <button onClick={() => props.remove(person)}>delete </button>
           </li>
         ))}
       </ul>
