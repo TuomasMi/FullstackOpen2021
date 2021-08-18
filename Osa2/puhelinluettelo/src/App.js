@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
 import personService from "./services/persons";
 
-const Notification = ({ message }) => {
+const Notification = ({ message, messageColor }) => {
   if (message === null) {
     return null;
   }
-  return <div className="message">{message}</div>;
+  if (messageColor === "red") {
+    return <div className="errorMessage">{message}</div>;
+  } else {
+    return <div className="message">{message}</div>;
+  }
 };
 
 const App = () => {
@@ -14,6 +18,7 @@ const App = () => {
   const [newNumber, setNewNumber] = useState("");
   const [filter, setFilter] = useState("");
   const [message, setMessage] = useState(null);
+  const [messageColor, setMessageColor] = useState(null);
 
   useEffect(() => {
     personService.getAll().then((initialPersons) => {
@@ -50,15 +55,26 @@ const App = () => {
         }, 5000);
       }
     } else {
-      personService.create(personObject).then((returnedPerson) => {
-        setPersons(persons.concat(returnedPerson));
-        setNewName("");
-        setNewNumber("");
-        setMessage(`Added ${personObject.name}`);
-        setTimeout(() => {
-          setMessage(null);
-        }, 5000);
-      });
+      personService
+        .create(personObject)
+        .then((returnedPerson) => {
+          setPersons(persons.concat(returnedPerson));
+          setNewName("");
+          setNewNumber("");
+          setMessage(`Added ${personObject.name}`);
+          setTimeout(() => {
+            setMessage(null);
+          }, 5000);
+        })
+        .catch((error) => {
+          console.log(error.response.data);
+          setMessageColor("red");
+          setMessage(JSON.stringify(error.response.data));
+          setTimeout(() => {
+            setMessage(null);
+            setMessageColor(null);
+          }, 5000);
+        });
     }
   };
 
@@ -98,7 +114,7 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
-      <Notification message={message} />
+      <Notification message={message} messageColor={messageColor} />
       <Filter filter={filter} handler={handleFilterChange} />
       <h2>add a new</h2>
       <PersonForm
